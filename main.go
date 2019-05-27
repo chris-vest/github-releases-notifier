@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -60,6 +61,22 @@ func main() {
 	checker := &Checker{
 		logger: logger,
 		client: githubql.NewClient(client),
+	}
+
+	if _, err := os.Stat("output"); err == nil {
+		level.Info(logger).Log("msg", "Found repository configuration file.")
+		lines, err := readLines("output")
+		if err != nil {
+			level.Error(logger).Log("%s", err)
+		}
+		for i, line := range lines {
+			readLinesMsg := fmt.Sprintf("Reading repository configuration file: line %v of total %v.", i+1, len(lines))
+			level.Info(logger).Log("msg", readLinesMsg)
+			c.Repositories = append(c.Repositories, line)
+		}
+	} else if os.IsNotExist(err) {
+		level.Warn(logger).Log("No configuration file exists, continuing and only using flagged arguments.")
+		level.Error(logger).Log(err)
 	}
 
 	releases := make(chan Repository)
