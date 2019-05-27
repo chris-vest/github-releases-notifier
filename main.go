@@ -17,6 +17,7 @@ import (
 
 // Config of env and args
 type Config struct {
+	File         string        `arg:"-f"`
 	GithubToken  string        `arg:"env:GITHUB_TOKEN"`
 	Interval     time.Duration `arg:"env:INTERVAL"`
 	LogLevel     string        `arg:"env:LOG_LEVEL"`
@@ -33,6 +34,7 @@ func main() {
 	_ = godotenv.Load()
 
 	c := Config{
+		File:     "output",
 		Interval: time.Hour,
 		LogLevel: "info",
 	}
@@ -63,25 +65,28 @@ func main() {
 		client: githubql.NewClient(client),
 	}
 
-	if _, err := os.Stat("output"); err == nil {
-		level.Info(logger).Log("msg", "Found repository configuration file.")
-		lines, err := readLines("output")
+	if _, err := os.Stat(c.File); err == nil {
+		level.Info(logger).Log("msg", "found repository configuration file")
+		lines, err := readFile(c.File)
 		if err != nil {
 			level.Error(logger).Log("%s", err)
 		}
 		for i, line := range lines {
-			readLinesMsg := fmt.Sprintf("Reading repository configuration file: line %v of total %v.", i+1, len(lines))
-			level.Info(logger).Log("msg", readLinesMsg)
+			readFileMsg := fmt.Sprintf("reading repository configuration file: line %v of total %v", i+1, len(lines))
+			level.Info(logger).Log("msg", readFileMsg)
 			c.Repositories = append(c.Repositories, line)
 		}
 	} else if os.IsNotExist(err) {
-		level.Warn(logger).Log("No configuration file exists, continuing and only using flagged arguments.")
-		level.Error(logger).Log(err)
+		level.Warn(logger).Log("msg", "no configuration file exists, continuing and only using flagged arguments")
+		level.Warn(logger).Log("err", err)
 	}
 
 	releases := make(chan Repository)
 	go checker.Run(c.Interval, c.Repositories, releases)
 
+	if c.SlackHook == "" {
+		level.Error(logger).Log("err", "missing Slack Webhook URL; cannot create Slack notifications")
+	}
 	slack := SlackSender{Hook: c.SlackHook}
 
 	level.Info(logger).Log("msg", "waiting for new releases")
