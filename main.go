@@ -17,7 +17,7 @@ import (
 
 // Config of env and args
 type Config struct {
-	File         string        `arg:"-f"`
+	FilePath     string        `arg:"-f"`
 	GithubToken  string        `arg:"env:GITHUB_TOKEN"`
 	Interval     time.Duration `arg:"env:INTERVAL"`
 	LogLevel     string        `arg:"env:LOG_LEVEL"`
@@ -34,7 +34,7 @@ func main() {
 	_ = godotenv.Load()
 
 	c := Config{
-		File:     "output",
+		FilePath: "output",
 		Interval: time.Hour,
 		LogLevel: "info",
 	}
@@ -65,11 +65,11 @@ func main() {
 		client: githubql.NewClient(client),
 	}
 
-	if _, err := os.Stat(c.File); err == nil {
+	if _, err := os.Stat(c.FilePath); err == nil {
 		level.Info(logger).Log("msg", "found repository configuration file")
-		lines, err := readFile(c.File)
+		lines, err := readFile(c.FilePath)
 		if err != nil {
-			level.Error(logger).Log("%s", err)
+			level.Error(logger).Log("err", err)
 		}
 		for i, line := range lines {
 			readFileMsg := fmt.Sprintf("reading repository configuration file: line %v of total %v", i+1, len(lines))
@@ -77,8 +77,8 @@ func main() {
 			c.Repositories = append(c.Repositories, line)
 		}
 	} else if os.IsNotExist(err) {
-		level.Warn(logger).Log("msg", "no configuration file exists, continuing and only using flagged arguments")
-		level.Warn(logger).Log("err", err)
+		level.Info(logger).Log("msg", "no configuration file exists, continuing and only using flagged arguments")
+		level.Info(logger).Log("msg", err)
 	}
 
 	releases := make(chan Repository)
